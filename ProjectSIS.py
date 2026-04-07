@@ -20,6 +20,20 @@ def ask_user():
     return term, unique_section_nbr
 
 
+# Format: 
+# First Line: Term (e.g. 1268 for Fall 2026)
+# Second + following lines: 5 digit class number # Any comments from the user
+
+def get_classes_from_files():
+    with open('track.txt', 'r') as file:
+        # Each line is an element in the content array.
+        content = file.readlines()
+        
+        term = content[0].strip()  # First line is the term
+        class_numbers = [line.strip() for line in content[1:]]  # Remaining lines are class numbers
+        
+    return term, class_numbers
+
 def get_class_info(term, unique_section_nbr):
     url = f"https://sisuva.admin.virginia.edu/psc/ihprd/UVSS/SA/s/WEBLIB_HCX_CM.H_CLASS_SEARCH.FieldFormula.IScript_ClassSearch?institution=UVA01&term={term}&class_nbr={unique_section_nbr}"
     
