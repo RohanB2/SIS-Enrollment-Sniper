@@ -4,7 +4,6 @@
 # Fall 2026 = term 1268
 
 import requests
-import json
 import os
 import smtplib
 from email.message import EmailMessage
@@ -30,7 +29,14 @@ def get_classes_from_files():
         content = file.readlines()
         
         term = content[0].strip()  # First line is the term
-        class_numbers = [line.strip() for line in content[1:]]  # Remaining lines are class numbers
+        class_numbers = [line.strip() for line in content[1:]] # Remaining lines are class numbers
+        
+        # Removes the comments from the class_numbers elements. Leaves only the 5 digit class number.
+        for i in range (len(class_numbers)):
+            # Remove any non-digit characters (like comments) from the class number
+            class_numbers[i] = class_numbers[i][0:5]
+            
+        print(class_numbers)  
         
     return term, class_numbers
 
@@ -118,5 +124,11 @@ def send_noti(course_name, professor, open_spots):
 
 
 if __name__ == "__main__":
-    term, section_nbr = ask_user()
-    get_class_info(term, section_nbr)
+    # term, section_nbr = ask_user()
+    
+    # Gets all the class numbers that the user wants to track.
+    term, class_numbers = get_classes_from_files()
+    
+    # Loops through all the classes the user wants to track, checks all of them and send's noti if any of them have an open spot.
+    for section_nbr in class_numbers:
+        get_class_info(term, section_nbr)
