@@ -8,6 +8,7 @@ import os
 import smtplib
 from email.message import EmailMessage
 from dotenv import load_dotenv
+from datetime import datetime
 
 def ask_user():
     print("Formula for term: 1 + [2 digit year] + [2 for spring, 8 for fall]")
@@ -17,7 +18,6 @@ def ask_user():
     unique_section_nbr = input("Enter the unique 5 digit class number on SIS/Lou's List (e.g. 17020): ") 
         
     return term, unique_section_nbr
-
 
 # Format: 
 # First Line: Term (e.g. 1268 for Fall 2026)
@@ -57,11 +57,24 @@ def get_class_info(term, unique_section_nbr):
             enrollment_total = my_class.get('enrollment_total', 0)
             open_spots = class_capacity - enrollment_total
             
-            # 2. Extract Class Name (e.g., "CS 3100")
+            # 2. Extract Class Name and other attributes to pass into notifications.
             subject = my_class.get('subject', 'Unknown Subject')
             catalog_nbr = my_class.get('catalog_nbr', '')
             course_name = f"{subject} {catalog_nbr}"
+            
+            # Gets the exact course title (Ex: Data Structures & Algo 2)
             desc = my_class.get('descr', '')
+            
+            # Extract Time
+            meetings = my_class.get('meetings', [])
+            if len(meetings) > 0:
+                days = meetings[0].get('days', '')
+                raw_start_time = meetings[0].get('start_time', '')
+                raw_end_time = meetings[0].get('end_time', '')
+
+            start_time, end_time = format_time(raw_start_time), format_time(raw_end_time)
+            time = f"{days}: {start_time} - {end_time}"
+            
             
             # 3. Extract Professor Name
             # The API usually stores instructors as a list of dictionaries. 
@@ -78,8 +91,8 @@ def get_class_info(term, unique_section_nbr):
                 
                 # Pass all three variables to the send notification function
                 
-                # send_email_noti(course_name, desc, professor, open_spots)
-                send_discord_noti(course_name, desc, professor, open_spots)
+                # send_email_noti(course_name, desc, professor, open_spots, time)
+                send_discord_noti(course_name, desc, professor, open_spots, time)
             else:
                 print(f"Checked {course_name}. No spots open yet.")
             
@@ -87,8 +100,23 @@ def get_class_info(term, unique_section_nbr):
             print("Class not found. Check your term and section number.")
     else:
         print("Failed to retrieve class information.")
+        
+def format_time(row_time_str):
+    try:
+        parsed_time = datetime.strptime(row_time_str, "%H.%M.%S.%f")
+        
+        # 12-hour clas with AM/PM (Ex: 09:30 AM)
+        readable_time = parsed_time.strftime("%I:%M%p")
+        
+        if readable_time[0] == '0':  # Remove leading zero for hours
+            readable_time = readable_time[1:]
+        return readable_time
     
-def send_discord_noti(course_name, descr, professor, open_spots):
+    except Exception as e:
+        print(f"Error parsing time: {e}")
+        return "TBA"
+    
+def send_discord_noti(course_name, descr, professor, open_spots, time):
     # Load keys
     load_dotenv('keys.env')
     webhook_url = os.getenv('discord_webhook_url')
@@ -100,13 +128,14 @@ def send_discord_noti(course_name, descr, professor, open_spots):
             "content": "@everyone SIS SPOT OPEN ALERT", 
             "embeds": [
                 {
-                    "title": f"Spots Open: {course_name}",
+                    "title": f"Spots Open: {descr} - {course_name}",
                     "description": "Go to SIS immediately to enroll!",
                     "color": 16711680, # This is the decimal code for Red. (Green is 65280)
                     "fields": [
                         {"name": "Course", "value": course_name, "inline": False},
                         {"name": "Course Name", "value": descr, "inline": False},
                         {"name": "Professor", "value": professor, "inline": False},
+                        {"name": "Time", "value": time, "inline": False},
                         {"name": "Open Spots", "value": str(open_spots), "inline": False}
                     ],
                     "footer": {"text": "UVA SIS Course Sniper"}
@@ -123,7 +152,7 @@ def send_discord_noti(course_name, descr, professor, open_spots):
     else:
         print(f"Failed to send Discord alert. Error: {response.status_code}")
 
-def send_email_noti(course_name, descr, professor, open_spots):
+def send_email_noti(course_name, descr, professor, open_spots, time):
     # Loading keys & env variables.
     load_dotenv('keys.env')
     
@@ -140,14 +169,15 @@ def send_email_noti(course_name, descr, professor, open_spots):
     # Formatting the email body with line breaks (\n) for readability
     email_body = (
         f"🚨 SPOT OPEN ALERT 🚨\n\n"
-        f"Course: {course_name}\n"
+        f"Course: {descr} - {course_name}\n"
         f"Professor: {professor}\n"
+        f"Time: {time}\n"
         f"Spots Available: {open_spots}\n\n"
         f"Go to SIS immediately to enroll!"
     )
     
     msg.set_content(email_body)
-    msg['Subject'] = f"Open Spot: {course_name}"
+    msg['Subject'] = f"Open Spot: {descr} - {course_name}"
     msg['From'] = bot_email
     msg['To'] = recipient_email
 
