@@ -1,3 +1,8 @@
 1268
 16032 # Hui Ma Probability 12-12:50 MWF
-17020 # Robbie Hott 9:30 DSA2 Section. Test Code
+16033 # Prob
+17011 # Prob 
+16872 # Prob
+17017 # Prob
+20830 # Prob
+16406 # ODE Shiran povat, same time as current (1-1:50 MWTHF)

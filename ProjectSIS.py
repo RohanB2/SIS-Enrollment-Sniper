@@ -110,6 +110,7 @@ def format_time(row_time_str):
         
         if readable_time[0] == '0':  # Remove leading zero for hours
             readable_time = readable_time[1:]
+            
         return readable_time
     
     except Exception as e:
@@ -199,5 +200,7 @@ if __name__ == "__main__":
     term, class_numbers = get_classes_from_files()
     
     # Loops through all the classes the user wants to track, checks all of them and send's noti if any of them have an open spot.
+ 
     for section_nbr in class_numbers:
         get_class_info(term, section_nbr)
+        
