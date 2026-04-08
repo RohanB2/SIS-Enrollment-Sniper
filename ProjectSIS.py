@@ -47,6 +47,7 @@ def get_class_info(term, unique_section_nbr):
     
     if response.status_code == 200:
         data = response.json() 
+        # print(data) # For debugging purposes, to see the full API response structure.
         
         if len(data.get('classes', [])) > 0:
             my_class = data['classes'][0]
@@ -60,6 +61,7 @@ def get_class_info(term, unique_section_nbr):
             subject = my_class.get('subject', 'Unknown Subject')
             catalog_nbr = my_class.get('catalog_nbr', '')
             course_name = f"{subject} {catalog_nbr}"
+            desc = my_class.get('descr', '')
             
             # 3. Extract Professor Name
             # The API usually stores instructors as a list of dictionaries. 
@@ -73,8 +75,11 @@ def get_class_info(term, unique_section_nbr):
             # 4. Trigger Notification Condition
             if open_spots > 0:
                 print(f"{course_name} with {professor} has {open_spots} open spot(s)! Enroll now!")
-                # Pass all three variables to our updated email function
-                send_noti(course_name, professor, open_spots)
+                
+                # Pass all three variables to the send notification function
+                
+                # send_email_noti(course_name, desc, professor, open_spots)
+                send_discord_noti(course_name, desc, professor, open_spots)
             else:
                 print(f"Checked {course_name}. No spots open yet.")
             
@@ -83,8 +88,42 @@ def get_class_info(term, unique_section_nbr):
     else:
         print("Failed to retrieve class information.")
     
+def send_discord_noti(course_name, descr, professor, open_spots):
+    # Load keys
+    load_dotenv('keys.env')
+    webhook_url = os.getenv('discord_webhook_url')
+    
+    # The message/payload we want to send to Discord
+    data = {
+            # 'content' is the standard text outside the embed. 
+            # Using @everyone here will physically ping your phone/desktop!
+            "content": "@everyone SIS SPOT OPEN ALERT", 
+            "embeds": [
+                {
+                    "title": f"Spots Open: {course_name}",
+                    "description": "Go to SIS immediately to enroll!",
+                    "color": 16711680, # This is the decimal code for Red. (Green is 65280)
+                    "fields": [
+                        {"name": "Course", "value": course_name, "inline": False},
+                        {"name": "Course Name", "value": descr, "inline": False},
+                        {"name": "Professor", "value": professor, "inline": False},
+                        {"name": "Open Spots", "value": str(open_spots), "inline": False}
+                    ],
+                    "footer": {"text": "UVA SIS Course Sniper"}
+                }
+            ]
+        }
+    
+    # Send the POST request to the webhood URL.
+    response = requests.post(webhook_url, json=data)
+    
+    # Discord returns a 204 status code for a successful request.
+    if response.status_code == 204:
+        print("Discord alert sent successfully!")
+    else:
+        print(f"Failed to send Discord alert. Error: {response.status_code}")
 
-def send_noti(course_name, professor, open_spots):
+def send_email_noti(course_name, descr, professor, open_spots):
     # Loading keys & env variables.
     load_dotenv('keys.env')
     
