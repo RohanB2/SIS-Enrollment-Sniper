@@ -315,9 +315,3 @@ Educational use. Please follow UVA's policies on automated access to university 
 ## Contact
 
 Questions? Issues? Open a GitHub issue or reach out!
-
----
-
-**Made by students, for students** ⚡
-
-*Get those open spots faster than refresh warriors* 🏃‍♂️💨
