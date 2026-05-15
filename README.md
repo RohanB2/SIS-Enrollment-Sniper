@@ -282,11 +282,6 @@ Temporarily modify a class number to one you know has open spots to verify alert
 
 ## Security Notes
 
-🔒 **Never commit `keys.env`** – It's already in `.gitignore`, but always double-check
-🔒 **Use App Passwords for Gmail** – Never use your actual Gmail password
-🔒 **Regenerate Discord webhooks** if they leak
-🔒 **Delete old webhooks** you're no longer using
-
 ## Rate Limiting
 
 The UVA SIS API can handle frequent requests, but be respectful:
