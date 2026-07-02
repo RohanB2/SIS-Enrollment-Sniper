@@ -273,10 +273,10 @@ export default function Dashboard() {
               
               <div style={{ flexGrow: 1, display: "flex", alignItems: "flex-end", margin: "1rem 0" }}>
                 <div className="course-target-pill">
-                  <span className="pill-icon" style={{ fontSize: "0.8rem", textTransform: "uppercase", fontWeight: 600 }}>
-                    {c.notifyType === 'discord' ? 'Discord:' : 'Email:'}
+                  <span className="pill-icon">
+                    {c.notifyType === 'discord' ? 'Discord Webhook' : 'Email Address'}
                   </span>
-                  <span>{c.notifyTarget}</span>
+                  <span className="pill-target">{c.notifyTarget}</span>
                 </div>
               </div>
 
