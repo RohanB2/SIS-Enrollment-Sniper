@@ -30,6 +30,7 @@ def get_classes_from_firestore():
             return "", []
             
         term = doc["fields"].get("term", {}).get("stringValue", "")
+        is_active = doc["fields"].get("isActive", {}).get("booleanValue", True)
         courses_arr = doc["fields"].get("courses", {}).get("arrayValue", {}).get("values", [])
         
         courses = []
@@ -44,10 +45,10 @@ def get_classes_from_firestore():
                 "notifyTarget": fields.get("notifyTarget", {}).get("stringValue", "")
             })
             
-        return term, courses
+        return term, courses, is_active
     except Exception as e:
         print(f"Error reading from Firestore: {e}")
-        return "", []
+        return "", [], True
 
 def get_class_info(term, course_obj):
     unique_section_nbr = course_obj.get('classNumber')
@@ -188,7 +189,11 @@ def send_email_noti(course_name, descr, professor, open_spots, time, recipient_e
 
 if __name__ == "__main__":
     load_dotenv('keys.env')
-    term, courses = get_classes_from_firestore()
+    term, courses, is_active = get_classes_from_firestore()
+    
+    if not is_active:
+        print("Bot is currently deactivated via the web dashboard. Exiting.")
+        exit(0)
     
     for course_obj in courses:
         get_class_info(term, course_obj)
