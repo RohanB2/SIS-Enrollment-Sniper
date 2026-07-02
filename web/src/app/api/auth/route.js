@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
-// In a real app, use environment variables, but for simplicity here we hardcode or use env.
-const MASTER_PASSWORD = process.env.MASTER_PASSWORD || 'sniper123';
+// In a real app, use environment variables.
+const MASTER_PASSWORD = process.env.MASTER_PASSWORD;
 
 export async function POST(request) {
   try {
