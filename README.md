@@ -1,4 +1,6 @@
-# SIS Enrollment Sniper
+# SIS Enrollment Sniper 🎯
+
+*I built this project for my personal ease of use to guarantee I get into the classes I want without constantly refreshing SIS. It is currently deployed as a full web application at [https://sis-sniper-site.vercel.app/](https://sis-sniper-site.vercel.app/) (note: access to the dashboard is protected by a master password).*
 
 A full-stack application that monitors UVA course enrollment through the official SIS API. It features a modern web dashboard to manage your tracked classes and uses GitHub Actions to run automated checks, sending real-time Discord or email notifications when spots open up.
 
@@ -48,6 +50,42 @@ A full-stack application that monitors UVA course enrollment through the officia
 5. For each class, specify whether you want a Discord Webhook alert or an Email alert, and provide the target destination.
 6. Use the global toggle in the top right to easily pause or activate the bot without modifying code.
 7. The GitHub Action will handle the rest in the background!
+
+## Example Output
+
+### Discord Notification Example
+
+When a spot opens, you'll get a Discord embed like this:
+
+```
+🎯 SIS SPOT OPEN ALERT @everyone
+
+Spots Open: Data Structures & Algorithms - CS 3100
+Go to SIS immediately to enroll!
+
+Course: CS 3100
+Course Name: Data Structures & Algorithms
+Professor: Shiran Povat
+Time: MWF: 1:00 PM - 1:50 PM
+Open Spots: 2
+
+UVA SIS Course Sniper
+```
+
+### Email Notification Example
+
+```
+Subject: Open Spot: Data Structures & Algorithms - CS 3100
+
+🚨 SPOT OPEN ALERT 🚨
+
+Course: Data Structures & Algorithms - CS 3100
+Professor: Shiran Povat
+Time: MWF: 1:00 PM - 1:50 PM
+Spots Available: 2
+
+Go to SIS immediately to enroll!
+```
 
 ## Term Code Formula
 When setting the active term in the dashboard, calculate it using the following formula:
