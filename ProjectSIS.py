@@ -15,15 +15,38 @@ def ask_user():
         
     return term, unique_section_nbr
 
-def get_classes_from_json():
+def get_classes_from_firestore():
+    api_key = os.getenv('FIREBASE_API_KEY')
+    url = f"https://firestore.googleapis.com/v1/projects/sis-course-sniper-bot/databases/(default)/documents/data/tracker?key={api_key}"
+    
     try:
-        with open('data.json', 'r') as file:
-            data = json.load(file)
-            term = data.get('term', '')
-            courses = data.get('courses', [])
-            return term, courses
+        response = requests.get(url)
+        if response.status_code != 200:
+            print(f"Error fetching from Firestore: {response.text}")
+            return "", []
+            
+        doc = response.json()
+        if "fields" not in doc:
+            return "", []
+            
+        term = doc["fields"].get("term", {}).get("stringValue", "")
+        courses_arr = doc["fields"].get("courses", {}).get("arrayValue", {}).get("values", [])
+        
+        courses = []
+        for c in courses_arr:
+            fields = c.get("mapValue", {}).get("fields", {})
+            courses.append({
+                "classNumber": fields.get("classNumber", {}).get("stringValue", ""),
+                "title": fields.get("title", {}).get("stringValue", ""),
+                "notes": fields.get("notes", {}).get("stringValue", ""),
+                "time": fields.get("time", {}).get("stringValue", ""),
+                "notifyType": fields.get("notifyType", {}).get("stringValue", ""),
+                "notifyTarget": fields.get("notifyTarget", {}).get("stringValue", "")
+            })
+            
+        return term, courses
     except Exception as e:
-        print(f"Error reading data.json: {e}")
+        print(f"Error reading from Firestore: {e}")
         return "", []
 
 def get_class_info(term, course_obj):
@@ -164,7 +187,8 @@ def send_email_noti(course_name, descr, professor, open_spots, time, recipient_e
         print(f"Failed to send email to {recipient_email}: {e}")
 
 if __name__ == "__main__":
-    term, courses = get_classes_from_json()
+    load_dotenv('keys.env')
+    term, courses = get_classes_from_firestore()
     
     for course_obj in courses:
         get_class_info(term, course_obj)

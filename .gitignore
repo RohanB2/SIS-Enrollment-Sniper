@@ -2,6 +2,6 @@
 keys.env
 *.env
 .DS_Store
-/web
+
 data.json
 __pycache__/

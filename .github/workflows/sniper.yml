@@ -1,0 +1,32 @@
+name: SIS Course Sniper Bot
+
+on:
+  schedule:
+    # Runs every 5 minutes
+    - cron: '*/5 * * * *'
+  # Allows you to manually trigger the script from the Actions tab
+  workflow_dispatch: 
+
+jobs:
+  run-sniper:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+          
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+        
+      - name: Run Sniper Bot
+        env:
+          # Pulls the secret variables securely from your GitHub repo settings
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+          sender_email: ${{ secrets.SENDER_EMAIL }}
+          app_password: ${{ secrets.APP_PASSWORD }}
+        run: python ProjectSIS.py
