@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db } from '../../../lib/firebase';
+import { db } from '../../../firebase/config';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 
 // We'll store all courses in a single document `data/tracker` to match the previous structure
@@ -13,13 +13,13 @@ async function getTrackerData() {
       return docSnap.data();
     } else {
       // Default state if document doesn't exist yet
-      const defaultState = { term: "1268", courses: [] };
+      const defaultState = { term: "1268", courses: [], isActive: true };
       await setDoc(TRACKER_DOC_REF, defaultState);
       return defaultState;
     }
   } catch (error) {
     console.error("Error fetching from Firestore:", error);
-    return { term: "1268", courses: [] };
+    return { term: "1268", courses: [], isActive: true };
   }
 }
 

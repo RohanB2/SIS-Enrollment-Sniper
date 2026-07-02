@@ -2,7 +2,7 @@ import { initializeApp, getApps, getApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyB06vGqURUMLBjiY0yJ9UuA1rY77PsUyf8",
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: "sis-course-sniper-bot.firebaseapp.com",
   projectId: "sis-course-sniper-bot",
   storageBucket: "sis-course-sniper-bot.firebasestorage.app",

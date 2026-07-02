@@ -15,6 +15,9 @@ export default function Dashboard() {
   const [notifyType, setNotifyType] = useState("discord");
   const [notifyTarget, setNotifyTarget] = useState("");
   const [error, setError] = useState("");
+  
+  const [isEditingTerm, setIsEditingTerm] = useState(false);
+  const [newTermInput, setNewTermInput] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -87,6 +90,44 @@ export default function Dashboard() {
     }
   };
 
+  const handleToggleSniper = async () => {
+    const newStatus = !data.isActive;
+    // Optimistically update UI
+    setData({ ...data, isActive: newStatus });
+    
+    try {
+      await fetch("/api/sniper", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: newStatus }),
+      });
+    } catch (err) {
+      console.error("Failed to toggle sniper status", err);
+      // Revert if error
+      setData({ ...data, isActive: !newStatus });
+    }
+  };
+
+  const handleUpdateTerm = async () => {
+    if (!newTermInput) return;
+    
+    try {
+      const res = await fetch("/api/term", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ term: newTermInput }),
+      });
+      
+      if (res.ok) {
+        setData({ ...data, term: newTermInput });
+        setIsEditingTerm(false);
+        setNewTermInput("");
+      }
+    } catch (err) {
+      console.error("Failed to update term", err);
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("sniper_auth");
     router.push("/");
@@ -96,14 +137,51 @@ export default function Dashboard() {
 
   return (
     <div className="container">
-      <div className="dashboard-header animate-in">
+      <div className="dashboard-header animate-in" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
           <h1>Sniper Dashboard</h1>
-          <p>Active Term: <strong style={{ color: "white" }}>{data.term}</strong></p>
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginTop: "0.5rem" }}>
+            <p style={{ margin: 0 }}>Active Term: <strong style={{ color: "white" }}>{data.term}</strong></p>
+            {!isEditingTerm && (
+              <button className="btn btn-secondary" style={{ padding: "0.4rem 0.8rem", fontSize: "0.85rem" }} onClick={() => setIsEditingTerm(true)}>
+                Change
+              </button>
+            )}
+          </div>
+          
+          {isEditingTerm && (
+            <div style={{ marginTop: "1rem", padding: "1rem", background: "rgba(0,0,0,0.2)", borderRadius: "12px", border: "1px solid rgba(255,255,255,0.1)" }}>
+              <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                <input 
+                  type="text" 
+                  className="glass-input" 
+                  style={{ padding: "0.5rem", width: "120px" }}
+                  placeholder="e.g. 1268" 
+                  value={newTermInput}
+                  onChange={(e) => setNewTermInput(e.target.value)}
+                />
+                <button className="btn" style={{ padding: "0.5rem 1rem" }} onClick={handleUpdateTerm}>Save</button>
+                <button className="btn btn-secondary" style={{ padding: "0.5rem 1rem" }} onClick={() => setIsEditingTerm(false)}>Cancel</button>
+              </div>
+              <p style={{ fontSize: "0.85rem", margin: 0, color: "rgba(255,255,255,0.6)" }}>
+                <strong>Formula:</strong> 1 + [2 digit year] + [2 for Spring, 8 for Fall]<br/>
+                <em>Example: Fall 2026 = 1 + 26 + 8 = <strong>1268</strong></em>
+              </p>
+            </div>
+          )}
         </div>
-        <button className="btn btn-secondary" onClick={handleLogout}>
-          Logout
-        </button>
+        <div style={{ display: "flex", gap: "1rem", alignItems: "center" }}>
+          <button 
+            className={`btn ${data.isActive ? 'btn-secondary' : 'btn-danger'}`} 
+            onClick={handleToggleSniper}
+            style={{ fontWeight: "bold" }}
+          >
+            {data.isActive ? "BOT IS ACTIVE" : "BOT IS PAUSED"}
+          </button>
+          <button className="btn btn-secondary" onClick={handleLogout}>
+            Logout
+          </button>
+        </div>
       </div>
 
       <div className="glass-panel animate-in delay-1" style={{ marginBottom: "4rem" }}>
