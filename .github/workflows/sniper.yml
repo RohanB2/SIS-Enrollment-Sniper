@@ -1,9 +1,6 @@
 name: SIS Course Sniper Bot
 
 on:
-  schedule:
-    # Runs every 5 minutes
-    - cron: '*/30 * * * *'
   # Allows you to manually trigger the script from the Actions tab
   workflow_dispatch: 
 
