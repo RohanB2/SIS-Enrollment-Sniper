@@ -21,11 +21,10 @@ export default function Home() {
       });
 
       if (res.ok) {
-        localStorage.setItem("sniper_auth", "authenticated");
         router.push("/dashboard");
       } else {
         const data = await res.json();
-        setError(data.message || "Invalid password");
+        setError(data.error || "Invalid password");
       }
     } catch (err) {
       setError("An error occurred. Please try again.");

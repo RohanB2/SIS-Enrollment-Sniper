@@ -1,0 +1,9 @@
+.git
+.venv
+web
+firebase
+keys.env
+*.env
+data.json
+track.txt
+__pycache__

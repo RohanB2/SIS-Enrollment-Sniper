@@ -1,90 +1,56 @@
 import { NextResponse } from 'next/server';
-import { db } from '../../../firebase/config';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
-
-// We'll store all courses in a single document `data/tracker` to match the previous structure
-// so it's a 1-to-1 replacement for the data.json object.
-const TRACKER_DOC_REF = doc(db, 'data', 'tracker');
-
-async function getTrackerData() {
+import { isAuthenticated } from '../../../lib/auth';
+import { trackerRef, trackerData } from '../../../lib/firestore';
+const unauthorized = () => NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+function validDestination(type, target) {
+  if (typeof target !== 'string' || target.length > 2048) return false;
+  if (type === 'email') return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(target);
+  if (type !== 'discord') return false;
   try {
-    const docSnap = await getDoc(TRACKER_DOC_REF);
-    if (docSnap.exists()) {
-      return docSnap.data();
-    } else {
-      // Default state if document doesn't exist yet
-      const defaultState = { term: "1268", courses: [], isActive: true };
-      await setDoc(TRACKER_DOC_REF, defaultState);
-      return defaultState;
-    }
-  } catch (error) {
-    console.error("Error fetching from Firestore:", error);
-    return { term: "1268", courses: [], isActive: true };
-  }
+    const url = new URL(target);
+    return url.protocol === 'https:' && ['discord.com', 'discordapp.com'].includes(url.hostname) && url.pathname.startsWith('/api/webhooks/');
+  } catch { return false; }
 }
-
-export async function GET() {
-  const data = await getTrackerData();
-  return NextResponse.json(data);
+export async function GET(request) {
+  if (!isAuthenticated(request)) return unauthorized();
+  try { return NextResponse.json(await trackerData()); }
+  catch { return NextResponse.json({ error: 'Failed to load tracker' }, { status: 500 }); }
 }
-
 export async function POST(request) {
+  if (!isAuthenticated(request)) return unauthorized();
   try {
-    const body = await request.json();
-    const { classNumber, title, notes, time, notifyType, notifyTarget } = body;
-
-    if (!classNumber || !notifyType || !notifyTarget) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    }
-
-    const data = await getTrackerData();
-    
-    // Check if course already exists
-    const existingIndex = data.courses.findIndex(c => c.classNumber === classNumber);
-    if (existingIndex >= 0) {
-      return NextResponse.json({ error: 'Course already tracked' }, { status: 409 });
-    }
-
-    const newCourse = { classNumber, title: title || '', notes: notes || '', time: time || '', notifyType, notifyTarget };
-    data.courses.push(newCourse);
-    
-    try {
-      await updateDoc(TRACKER_DOC_REF, { courses: data.courses });
-      return NextResponse.json({ success: true, courses: data.courses });
-    } catch (error) {
-      console.error("Error writing to Firestore:", error);
-      return NextResponse.json({ error: 'Failed to write data' }, { status: 500 });
-    }
-  } catch (error) {
-    return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
-  }
+    const { classNumber, title, notes, time, notifyType, notifyTarget } = await request.json();
+    if (typeof classNumber !== 'string' || !/^\d{5}$/.test(classNumber) || !validDestination(notifyType, notifyTarget?.trim()))
+      return NextResponse.json({ error: 'Enter a five-digit class number and notification destination' }, { status: 400 });
+    const course = { classNumber, title: String(title || ''), notes: String(notes || ''), time: String(time || ''), notifyType, notifyTarget: notifyTarget.trim() };
+    const ref = trackerRef();
+    const courses = await ref.firestore.runTransaction(async tx => {
+      const snap = await tx.get(ref);
+      const data = snap.exists ? snap.data() : { term: '1268', courses: [], isActive: false };
+      if (data.courses.some(c => c.classNumber === classNumber)) return null;
+      const updated = [...data.courses, course];
+      tx.set(ref, { ...data, courses: updated });
+      return updated;
+    });
+    if (!courses) return NextResponse.json({ error: 'Course already tracked' }, { status: 409 });
+    return NextResponse.json({ success: true, courses });
+  } catch { return NextResponse.json({ error: 'Failed to add course' }, { status: 500 }); }
 }
-
 export async function DELETE(request) {
+  if (!isAuthenticated(request)) return unauthorized();
+  const classNumber = new URL(request.url).searchParams.get('classNumber');
+  if (!classNumber) return NextResponse.json({ error: 'Missing class number' }, { status: 400 });
   try {
-    const { searchParams } = new URL(request.url);
-    const classNumber = searchParams.get('classNumber');
-    
-    if (!classNumber) {
-      return NextResponse.json({ error: 'Missing classNumber parameter' }, { status: 400 });
-    }
-
-    const data = await getTrackerData();
-    const initialLength = data.courses.length;
-    data.courses = data.courses.filter(c => c.classNumber !== classNumber);
-
-    if (data.courses.length === initialLength) {
-      return NextResponse.json({ error: 'Course not found' }, { status: 404 });
-    }
-
-    try {
-      await updateDoc(TRACKER_DOC_REF, { courses: data.courses });
-      return NextResponse.json({ success: true, courses: data.courses });
-    } catch (error) {
-      console.error("Error writing to Firestore:", error);
-      return NextResponse.json({ error: 'Failed to write data' }, { status: 500 });
-    }
-  } catch (error) {
-    return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
-  }
+    const ref = trackerRef();
+    const courses = await ref.firestore.runTransaction(async tx => {
+      const snap = await tx.get(ref);
+      const data = snap.data();
+      if (!data?.courses?.some(c => c.classNumber === classNumber)) return null;
+      const updated = data.courses.filter(c => c.classNumber !== classNumber);
+      tx.update(ref, { courses: updated });
+      return updated;
+    });
+    if (!courses) return NextResponse.json({ error: 'Course not found' }, { status: 404 });
+    return NextResponse.json({ success: true, courses });
+  } catch { return NextResponse.json({ error: 'Failed to remove course' }, { status: 500 }); }
 }

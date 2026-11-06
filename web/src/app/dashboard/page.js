@@ -24,20 +24,17 @@ export default function Dashboard() {
       try {
         const res = await fetch("/api/courses");
         const json = await res.json();
+        if (res.status === 401) { router.push("/"); return; }
+        if (!res.ok) throw new Error(json.error || "Failed to load tracker");
         setData(json);
         setLoading(false);
       } catch (err) {
-        console.error("Failed to fetch data", err);
+        setError(err.message);
+        setLoading(false);
       }
     };
 
-    // Simple client-side auth check
-    const auth = localStorage.getItem("sniper_auth");
-    if (auth !== "authenticated") {
-      router.push("/");
-    } else {
-      fetchData();
-    }
+    fetchData();
   }, [router]);
 
   const handleAddCourse = async (e) => {
@@ -96,13 +93,14 @@ export default function Dashboard() {
     setData({ ...data, isActive: newStatus });
     
     try {
-      await fetch("/api/sniper", {
+      const res = await fetch("/api/sniper", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive: newStatus }),
       });
+      if (!res.ok) throw new Error("Failed to update bot status");
     } catch (err) {
-      console.error("Failed to toggle sniper status", err);
+      setError(err.message);
       // Revert if error
       setData({ ...data, isActive: !newStatus });
     }
@@ -128,12 +126,13 @@ export default function Dashboard() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("sniper_auth");
+  const handleLogout = async () => {
+    await fetch("/api/auth", { method: "DELETE" });
     router.push("/");
   };
 
   if (loading) return <div className="full-page"><div className="glass-panel">Loading tracker...</div></div>;
+  if (error && !data.term) return <div className="full-page"><div className="glass-panel">{error}</div></div>;
 
   return (
     <div className="container">

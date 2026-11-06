@@ -2,14 +2,14 @@
 
 *I built this project for my personal ease of use to guarantee I get into the classes I want without constantly refreshing SIS. It is currently deployed as a full web application at [https://sis-sniper-site.vercel.app/](https://sis-sniper-site.vercel.app/) (note: access to the dashboard is protected by a master password).*
 
-A full-stack application that monitors UVA course enrollment through the official SIS API. It features a modern web dashboard to manage your tracked classes and uses GitHub Actions to run automated checks, sending real-time Discord or email notifications when spots open up.
+A full-stack application that monitors UVA course enrollment through the official SIS API. It features a web dashboard to manage tracked classes and sends Discord or email notifications when spots open up.
 
 ## Architecture & How It Works
 
 1. **The Web Dashboard (Next.js)**: A secure UI to easily add or remove classes you want to track, toggle the bot's active status, and configure the active academic term.
 2. **The Database (Firebase Firestore)**: Stores your tracked classes, notification targets (Discord webhooks or Emails), and bot status in the cloud.
-3. **The Sniper Bot (Python)**: An automated script that reads from the database, queries the official UVA SIS API for current enrollment data, and sends alerts.
-4. **The Automation (GitHub Actions)**: Runs the Sniper Bot automatically on a continuous schedule in the background, entirely for free.
+3. **The Sniper Bot (Python)**: A Cloud Run Job reads Firestore, queries UVA SIS, and sends alerts.
+4. **The Automation (Cloud Scheduler)**: Invokes the Cloud Run Job on a schedule. The GitHub Actions schedule remains in the repository only during migration.
 
 ## Setup & Deployment
 
@@ -22,24 +22,19 @@ A full-stack application that monitors UVA course enrollment through the officia
 ### 2. Configure Firebase (Database)
 1. Create a new Firebase project and initialize a Firestore Database.
 2. Set the Firestore Security Rules.
-3. In your Firebase Project Settings, copy your Web API Key.
+3. Deploy the deny-all rules in `firebase/firestore.rules` after the dashboard and job have server credentials.
 
 ### 3. Deploy the Dashboard (Vercel)
 1. Fork or clone this repository to your GitHub.
 2. Import the project into Vercel, specifically pointing to the `web` folder.
 3. Add the following Environment Variables in Vercel:
-   - `NEXT_PUBLIC_FIREBASE_API_KEY`: Your Firebase Web API Key
-   - `MASTER_PASSWORD`: A password you choose to log into the dashboard securely.
+   - `MASTER_PASSWORD`: A strong password for the dashboard.
+   - `SESSION_SECRET`: A random secret of at least 32 characters for signed login cookies.
+   - `FIREBASE_SERVICE_ACCOUNT_JSON`: The Firestore service account JSON, stored only as a server-side secret.
 4. Click Deploy.
 
-### 4. Configure Automated Bot (GitHub Actions)
-1. Go to your GitHub repository settings.
-2. Navigate to **Secrets and variables > Actions**.
-3. Add the following repository secrets so the script can access the database and send emails:
-   - `FIREBASE_API_KEY`: Your Firebase Web API Key.
-   - `SENDER_EMAIL`: The Gmail address the bot will use to send emails.
-   - `APP_PASSWORD`: A 16-character Google App Password for the sender email (found in your Google Account Security settings).
-4. The bot will now automatically run based on the schedule configured in `.github/workflows/sniper.yml` (default is every 30 minutes).
+### 4. Configure the scheduled bot
+See [CLOUD_SETUP.md](CLOUD_SETUP.md) for the migration sequence and required Google Cloud permissions and secrets.
 
 ## Usage
 
@@ -49,7 +44,7 @@ A full-stack application that monitors UVA course enrollment through the officia
 4. Add classes you want to track by entering their 5-digit section number.
 5. For each class, specify whether you want a Discord Webhook alert or an Email alert, and provide the target destination.
 6. Use the global toggle in the top right to easily pause or activate the bot without modifying code.
-7. The GitHub Action will handle the rest in the background!
+7. The Cloud Scheduler job will handle future checks.
 
 ## Example Output
 
@@ -105,7 +100,7 @@ npm run dev
 ```
 
 **To run the python bot locally:**
-Create a `keys.env` file in the root directory with your credentials, then run:
+Authenticate to Google Cloud with Application Default Credentials for `sis-course-sniper-bot`. If using email alerts, place `sender_email` and `app_password` in a local `keys.env` file. Running the bot can send real notifications.
 ```bash
 pip install -r requirements.txt
 python3 ProjectSIS.py

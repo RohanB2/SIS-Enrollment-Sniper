@@ -1,18 +1,11 @@
 import { NextResponse } from 'next/server';
-
-// In a real app, use environment variables.
-const MASTER_PASSWORD = process.env.MASTER_PASSWORD || 'testpass123';
-
+import { createSession, isAuthenticated, passwordMatches, setSessionCookie } from '../../../lib/auth';
+export async function GET(request) { return NextResponse.json({ authenticated: isAuthenticated(request) }); }
 export async function POST(request) {
   try {
     const { password } = await request.json();
-    if (password === MASTER_PASSWORD) {
-      // In a real app, issue a JWT or session cookie. Here we'll just return a success signal.
-      return NextResponse.json({ success: true, token: 'authenticated' }, { status: 200 });
-    } else {
-      return NextResponse.json({ success: false, message: 'Invalid password' }, { status: 401 });
-    }
-  } catch (error) {
-    return NextResponse.json({ success: false, message: 'Bad request' }, { status: 400 });
-  }
+    if (!passwordMatches(password)) return NextResponse.json({ error: 'Invalid password' }, { status: 401 });
+    return setSessionCookie(NextResponse.json({ success: true }), createSession());
+  } catch { return NextResponse.json({ error: 'Invalid request or server configuration' }, { status: 400 }); }
 }
+export async function DELETE() { return setSessionCookie(NextResponse.json({ success: true }), '', 0); }
