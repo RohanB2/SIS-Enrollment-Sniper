@@ -1,25 +1,12 @@
 import { NextResponse } from 'next/server';
-import { db } from '../../../firebase/config';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-
-const TRACKER_DOC_REF = doc(db, 'data', 'tracker');
-
+import { isAuthenticated } from '../../../lib/auth';
+import { trackerRef } from '../../../lib/firestore';
 export async function POST(request) {
+  if (!isAuthenticated(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
     const { term } = await request.json();
-    
-    if (!term || typeof term !== 'string') {
-      return NextResponse.json({ error: 'Invalid term' }, { status: 400 });
-    }
-
-    try {
-      await updateDoc(TRACKER_DOC_REF, { term });
-      return NextResponse.json({ success: true, term });
-    } catch (error) {
-      console.error("Error writing to Firestore:", error);
-      return NextResponse.json({ error: 'Failed to update term' }, { status: 500 });
-    }
-  } catch (error) {
-    return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
-  }
+    if (typeof term !== 'string' || !/^1\d{2}[28]$/.test(term)) return NextResponse.json({ error: 'Invalid term' }, { status: 400 });
+    await trackerRef().update({ term });
+    return NextResponse.json({ success: true, term });
+  } catch { return NextResponse.json({ error: 'Failed to update term' }, { status: 500 }); }
 }

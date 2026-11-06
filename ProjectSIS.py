@@ -1,7 +1,8 @@
 import requests
 import os
 import smtplib
-import json
+import hashlib
+from google.cloud import firestore
 from email.message import EmailMessage
 from dotenv import load_dotenv
 from datetime import datetime
@@ -16,39 +17,16 @@ def ask_user():
     return term, unique_section_nbr
 
 def get_classes_from_firestore():
-    api_key = os.getenv('FIREBASE_API_KEY')
-    url = f"https://firestore.googleapis.com/v1/projects/sis-course-sniper-bot/databases/(default)/documents/data/tracker?key={api_key}"
-    
-    try:
-        response = requests.get(url)
-        if response.status_code != 200:
-            print(f"Error fetching from Firestore: {response.text}")
-            return "", []
-            
-        doc = response.json()
-        if "fields" not in doc:
-            return "", []
-            
-        term = doc["fields"].get("term", {}).get("stringValue", "")
-        is_active = doc["fields"].get("isActive", {}).get("booleanValue", True)
-        courses_arr = doc["fields"].get("courses", {}).get("arrayValue", {}).get("values", [])
-        
-        courses = []
-        for c in courses_arr:
-            fields = c.get("mapValue", {}).get("fields", {})
-            courses.append({
-                "classNumber": fields.get("classNumber", {}).get("stringValue", ""),
-                "title": fields.get("title", {}).get("stringValue", ""),
-                "notes": fields.get("notes", {}).get("stringValue", ""),
-                "time": fields.get("time", {}).get("stringValue", ""),
-                "notifyType": fields.get("notifyType", {}).get("stringValue", ""),
-                "notifyTarget": fields.get("notifyTarget", {}).get("stringValue", "")
-            })
-            
-        return term, courses, is_active
-    except Exception as e:
-        print(f"Error reading from Firestore: {e}")
-        return "", [], True
+    doc = firestore.Client(project="sis-course-sniper-bot").document("data/tracker").get()
+    if not doc.exists:
+        raise RuntimeError("Firestore data/tracker does not exist")
+    data = doc.to_dict()
+    return data.get("term", ""), data.get("courses", []), data.get("isActive", False)
+
+def alert_ref(term, course_obj):
+    identity = "|".join([term, course_obj["classNumber"], course_obj["notifyType"], course_obj["notifyTarget"]])
+    digest = hashlib.sha256(identity.encode()).hexdigest()
+    return firestore.Client(project="sis-course-sniper-bot").collection("alert_state").document(digest)
 
 def get_class_info(term, course_obj):
     unique_section_nbr = course_obj.get('classNumber')
@@ -57,7 +35,7 @@ def get_class_info(term, course_obj):
 
     url = f"https://sisuva.admin.virginia.edu/psc/ihprd/UVSS/SA/s/WEBLIB_HCX_CM.H_CLASS_SEARCH.FieldFormula.IScript_ClassSearch?institution=UVA01&term={term}&class_nbr={unique_section_nbr}"
     
-    response = requests.get(url)
+    response = requests.get(url, timeout=20)
     
     if response.status_code == 200:
         data = response.json() 
@@ -66,8 +44,8 @@ def get_class_info(term, course_obj):
             my_class = data['classes'][0]
             
             # 1. Math for open spots
-            class_capacity = my_class.get('class_capacity', 0)
-            enrollment_total = my_class.get('enrollment_total', 0)
+            class_capacity = int(my_class.get('class_capacity') or 0)
+            enrollment_total = int(my_class.get('enrollment_total') or 0)
             open_spots = class_capacity - enrollment_total
             
             # 2. Extract Class Name and other attributes to pass into notifications.
@@ -100,20 +78,28 @@ def get_class_info(term, course_obj):
                 professor = "TBA"
 
             # 4. Trigger Notification Condition
+            state = alert_ref(term, course_obj)
             if open_spots > 0:
                 print(f"{course_name} with {professor} has {open_spots} open spot(s)! Enroll now!")
-                
+                if (state.get().to_dict() or {}).get("open"):
+                    print("Alert already sent for this opening.")
+                    return
                 if notify_type == 'discord':
-                    send_discord_noti(course_name, desc, professor, open_spots, time, notify_target)
+                    sent = send_discord_noti(course_name, desc, professor, open_spots, time, notify_target)
                 elif notify_type == 'email':
-                    send_email_noti(course_name, desc, professor, open_spots, time, notify_target)
+                    sent = send_email_noti(course_name, desc, professor, open_spots, time, notify_target)
+                else:
+                    raise ValueError(f"Unknown notification type: {notify_type}")
+                if sent:
+                    state.set({"open": True, "lastSent": firestore.SERVER_TIMESTAMP})
             else:
+                state.set({"open": False})
                 print(f"Checked {course_name}. No spots open yet.")
             
         else:
             print(f"Class {unique_section_nbr} not found. Check your term and section number.")
     else:
-        print(f"Failed to retrieve class information for {unique_section_nbr}.")
+        raise RuntimeError(f"Failed to retrieve class information for {unique_section_nbr}: HTTP {response.status_code}")
         
 def format_time(row_time_str):
     if not row_time_str:
@@ -149,13 +135,15 @@ def send_discord_noti(course_name, descr, professor, open_spots, time, webhook_u
         }
     
     try:
-        response = requests.post(webhook_url, json=data)
+        response = requests.post(webhook_url, json=data, timeout=20)
         if response.status_code == 204:
-            print(f"Discord alert sent successfully to {webhook_url}!")
+            print("Discord alert sent successfully.")
+            return True
         else:
             print(f"Failed to send Discord alert. Error: {response.status_code}")
     except Exception as e:
         print(f"Failed to send Discord alert: {e}")
+    return False
 
 def send_email_noti(course_name, descr, professor, open_spots, time, recipient_email):
     load_dotenv('keys.env')
@@ -184,8 +172,10 @@ def send_email_noti(course_name, descr, professor, open_spots, time, recipient_e
         server.send_message(msg)
         server.quit()
         print(f"Email alert sent successfully to {recipient_email}!")
+        return True
     except Exception as e:
         print(f"Failed to send email to {recipient_email}: {e}")
+    return False
 
 if __name__ == "__main__":
     load_dotenv('keys.env')
@@ -195,5 +185,7 @@ if __name__ == "__main__":
         print("Bot is currently deactivated via the web dashboard. Exiting.")
         exit(0)
     
+    if not term:
+        raise RuntimeError("No active term configured")
     for course_obj in courses:
         get_class_info(term, course_obj)
