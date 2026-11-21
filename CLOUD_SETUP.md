@@ -5,8 +5,8 @@ The live setup has two Google Cloud projects: `sis-spotbot` hosts the new Cloud 
 ## Live bot status
 
 - `sis-sniper-tracker` runs in `northamerica-northeast2` with `sis-sniper-runner@sis-spotbot.iam.gserviceaccount.com`. That identity has Firestore read/write access in `sis-course-sniper-bot`.
-- `sis-sniper-tracker-five-minute` is enabled in `northamerica-northeast1` with `*/5 * * * *` in `America/New_York`. It uses OAuth as `sis-sniper-scheduler@sis-spotbot.iam.gserviceaccount.com`, which has Cloud Run Invoker access on this job only.
-- A manual Cloud Run execution, a forced Scheduler execution, and the first automatic five-minute execution all completed successfully. The runner checked the tracked STS 2600 section and found no open seats at the time of the manual run.
+- `sis-sniper-tracker-five-minute` is enabled in `northamerica-northeast1` with `*/10 * * * *` in `America/New_York` (the job name is retained from its original five-minute setup). It uses OAuth as `sis-sniper-scheduler@sis-spotbot.iam.gserviceaccount.com`, which has Cloud Run Invoker access on this job only.
+- A manual Cloud Run execution, a forced Scheduler execution, and the first automatic execution all completed successfully on the original five-minute schedule. The runner checked the tracked STS 2600 section and found no open seats at the time of the manual run. The ten-minute schedule was saved and shown as enabled in Cloud Scheduler on November 21, 2026.
 - The older `sis-spotbot-timer` remains paused. The GitHub Actions `schedule` trigger was removed from `main`; `workflow_dispatch` remains for manual use.
 - The runner reads the current term and course list from Firestore `data/tracker`; `track.txt` is not used. Discord destinations remain in that document. Alert deduplication state is stored in `alert_state`.
 
